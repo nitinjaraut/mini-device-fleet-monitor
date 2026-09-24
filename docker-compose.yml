@@ -1,0 +1,23 @@
+services:
+  server:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEVICE_TIMEOUT_SECONDS=30
+      - HOST=0.0.0.0
+      - PORT=8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/summary')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  simulator:
+    build: .
+    command: python -m simulator.simulator --server-url http://server:8000
+    depends_on:
+      server:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
