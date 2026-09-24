@@ -185,24 +185,20 @@ async def heartbeat_loop(
             pass
 
 
-async def input_listener(
+def setup_input_listener(
     devices: list[SimulatedDevice], stop_event: asyncio.Event
-) -> None:
-    """Listen for keyboard input to toggle devices or quit."""
-    loop = asyncio.get_event_loop()
-    while not stop_event.is_set():
-        try:
-            line = await loop.run_in_executor(None, sys.stdin.readline)
-            line = line.strip().lower()
-        except (EOFError, OSError):
-            break
+) -> callable:
+    """Listen for keyboard input to toggle devices or quit without blocking process exit."""
+    loop = asyncio.get_running_loop()
 
+    def handle_line(raw: str) -> None:
+        line = raw.strip().lower()
+        if not line:
+            return
         if line == "q":
             print(f"\n  {colorize('Shutting down simulator...', 'yellow')}")
             stop_event.set()
-            break
-
-        if line in [str(i) for i in range(1, NUM_DEVICES + 1)]:
+        elif line in [str(i) for i in range(1, NUM_DEVICES + 1)]:
             idx = int(line) - 1
             device = devices[idx]
             device.active = not device.active
@@ -212,6 +208,39 @@ async def input_listener(
                 else colorize("PAUSED (will go OFFLINE after 30s)", "red")
             )
             print(f"\n  → {colorize(device.device_id, 'cyan')}: {state}\n")
+
+    # On POSIX (macOS/Linux), use loop.add_reader on stdin fd for non-blocking I/O
+    try:
+        def on_stdin_readable():
+            try:
+                line = sys.stdin.readline()
+                if not line:  # EOF
+                    stop_event.set()
+                    return
+                handle_line(line)
+            except Exception:
+                pass
+
+        loop.add_reader(sys.stdin.fileno(), on_stdin_readable)
+        return lambda: loop.remove_reader(sys.stdin.fileno())
+    except (NotImplementedError, io.UnsupportedOperation, AttributeError, OSError):
+        # Fallback to daemon thread for platforms where add_reader is unsupported
+        import threading
+
+        def thread_target():
+            while not stop_event.is_set():
+                try:
+                    line = sys.stdin.readline()
+                    if not line:
+                        loop.call_soon_threadsafe(stop_event.set)
+                        break
+                    loop.call_soon_threadsafe(handle_line, line)
+                except Exception:
+                    break
+
+        t = threading.Thread(target=thread_target, daemon=True)
+        t.start()
+        return lambda: None
 
 
 async def main(server_url: str) -> None:
@@ -237,13 +266,19 @@ async def main(server_url: str) -> None:
 
     stop_event = asyncio.Event()
 
-    # Handle Ctrl+C gracefully
+    # Handle Ctrl+C / SIGINT / SIGTERM gracefully
     def handle_signal(*_):
-        print(f"\n  {colorize('Received interrupt, shutting down...', 'yellow')}")
-        stop_event.set()
+        if not stop_event.is_set():
+            print(f"\n  {colorize('Received interrupt, shutting down...', 'yellow')}")
+            stop_event.set()
 
-    signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
+    loop = asyncio.get_running_loop()
+    try:
+        loop.add_signal_handler(signal.SIGINT, handle_signal)
+        loop.add_signal_handler(signal.SIGTERM, handle_signal)
+    except (NotImplementedError, AttributeError):
+        signal.signal(signal.SIGINT, handle_signal)
+        signal.signal(signal.SIGTERM, handle_signal)
 
     async with aiohttp.ClientSession() as session:
         # Step 1: Register all devices
@@ -265,11 +300,12 @@ async def main(server_url: str) -> None:
         print(f"  {colorize('Sending heartbeats...', 'bold')}")
         print()
 
-        # Step 2: Run heartbeat loop and input listener concurrently
-        await asyncio.gather(
-            heartbeat_loop(session, server_url, devices, stop_event),
-            input_listener(devices, stop_event),
-        )
+        # Step 2: Set up non-blocking input listener and run heartbeat loop
+        cleanup_listener = setup_input_listener(devices, stop_event)
+        try:
+            await heartbeat_loop(session, server_url, devices, stop_event)
+        finally:
+            cleanup_listener()
 
     # Final status
     print()
@@ -289,8 +325,12 @@ def cli() -> None:
         help=f"Fleet monitor server URL (default: {DEFAULT_SERVER_URL})",
     )
     args = parser.parse_args()
-    asyncio.run(main(args.server_url))
+    try:
+        asyncio.run(main(args.server_url))
+    except (KeyboardInterrupt, SystemExit):
+        pass
 
 
 if __name__ == "__main__":
     cli()
+
