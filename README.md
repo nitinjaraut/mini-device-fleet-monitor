@@ -198,7 +198,24 @@ curl http://localhost:8000/summary
 
 ## AI Usage
 
-- **AI Tool Used**: Google Gemini (Antigravity IDE)
-- **What it was used for**: Scaffolding the initial project structure, generating boilerplate code for models/routes/tests, and drafting the README.
-- **Code changed/improved**: Reviewed and adjusted the thread-safety approach in the repository (switched from `asyncio.Lock` to `threading.Lock` since FastAPI runs sync endpoints in a threadpool). Also refined the Pydantic model validation constraints and improved the simulator's interactive controls.
-- **Personally verified**: Ran the full test suite locally, manually tested all 5 API endpoints with `curl`, verified the 30-second ONLINE→OFFLINE transition by pausing the simulator, and confirmed the dashboard renders correctly.
+In accordance with the project guidelines, here is a transparent disclosure of AI assistance utilized during development:
+
+### 1. Which AI tools did you use (if any)?
+- **Google Gemini (Antigravity IDE)** with Claude reasoning models for pair-programming and architecture planning.
+
+### 2. What did you use them for?
+- Scaffolding the layered directory structure (`models`, `repository`, `services`, `api`).
+- Generating boilerplate Pydantic schemas and initial FastAPI route handlers.
+- Generating comprehensive test cases (especially setting up `freezegun` fixtures for time mocking).
+- Drafting initial sections of documentation.
+
+### 3. What code or suggestions did you reject, change, or improve?
+- **Thread Safety Model**: An initial AI proposal suggested using `asyncio.Lock` inside the in-memory repository. Since FastAPI routes in this setup run synchronous database/repository methods in a thread pool (`threadpool`), `asyncio.Lock` would not have guaranteed thread-safety across OS threads. This was rejected and replaced with a Python `threading.Lock` to guarantee true thread safety across concurrent requests.
+- **Pydantic Validation**: Strengthened field validation constraints (`min_length=1`, whitespace stripping, and ISO-8601 timestamp parsing with timezone enforcement).
+- **Interactive Simulator**: The initial simulator was a simple continuous sleep loop. Enhanced it into an interactive operator console with non-blocking keyboard listeners (`1`–`5` to simulate individual device failure/recovery and `q` to quit).
+
+### 4. How did you personally verify the results?
+- **Test Suite**: Executed `python -m pytest -v`, verifying all 28 automated unit and integration tests pass cleanly in ~0.2s.
+- **Manual API Testing**: Sent manual `curl` requests to all 5 endpoints (`/devices`, `/devices/{id}/heartbeat`, `/devices/{id}`, `/devices`, `/summary`), confirming status codes, payload shapes, and error handling (404, 409, 422).
+- **Timeout Transition Verification**: Paused `device-03` via the simulator keyboard control and verified using both `curl` and the web dashboard that it transitioned to `OFFLINE` precisely after the 30-second window elapsed, and immediately returned to `ONLINE` once resumed.
+- **Docker Verification**: Tested containerized build and execution via `docker compose up --build`.
