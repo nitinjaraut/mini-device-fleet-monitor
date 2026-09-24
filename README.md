@@ -86,8 +86,7 @@ docker compose up --build
 ### Interactive API Documentation
 
 Once the server is running, visit:
-- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **Interactive Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs) (includes a direct "← Back to Dashboard" button)
 
 ---
 

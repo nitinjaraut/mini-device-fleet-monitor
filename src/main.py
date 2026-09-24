@@ -46,8 +46,8 @@ def create_app() -> FastAPI:
             "and reports ONLINE/OFFLINE status based on a configurable timeout."
         ),
         version="1.0.0",
-        docs_url=None,    # Disable default so we can serve a custom one
-        redoc_url=None,   # Disable default so we can serve a custom one
+        docs_url=None,    # Disable default so we can serve a custom one with navigation
+        redoc_url=None,   # Disable ReDoc
     )
 
     # Custom /docs page with a "← Back to Dashboard" navigation bar
@@ -88,42 +88,6 @@ def create_app() -> FastAPI:
         modified_html = swagger_page.body.decode().replace("<body>", "<body>" + nav_bar)
         return HTMLResponse(content=modified_html)
 
-    # Custom /redoc page with the same navigation bar
-    @app.get("/redoc", include_in_schema=False)
-    def custom_redoc():
-        from fastapi.openapi.docs import get_redoc_html
-        redoc_page = get_redoc_html(
-            openapi_url=app.openapi_url,
-            title=app.title + " — ReDoc",
-        )
-        nav_bar = """
-        <div style="
-            position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-            background: linear-gradient(135deg, #1a1d27, #222632);
-            padding: 10px 24px;
-            display: flex; align-items: center; gap: 16px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            font-family: 'Inter', -apple-system, sans-serif;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-        ">
-            <a href="/" style="
-                color: #60a5fa; text-decoration: none; font-size: 14px;
-                font-weight: 500; display: flex; align-items: center; gap: 6px;
-                background: rgba(96,165,250,0.1); padding: 6px 14px;
-                border-radius: 20px; border: 1px solid rgba(96,165,250,0.2);
-                transition: all 0.2s;
-            " onmouseover="this.style.background='rgba(96,165,250,0.2)';this.style.borderColor='#60a5fa'"
-              onmouseout="this.style.background='rgba(96,165,250,0.1)';this.style.borderColor='rgba(96,165,250,0.2)'">
-                ← Back to Dashboard
-            </a>
-            <span style="color: #9aa0ab; font-size: 13px;">
-                ⚡ Mini Device Fleet Monitor — ReDoc API Reference
-            </span>
-        </div>
-        <style>body { padding-top: 48px !important; }</style>
-        """
-        modified_html = redoc_page.body.decode().replace("<body>", "<body>" + nav_bar)
-        return HTMLResponse(content=modified_html)
 
     # Wire up the service layer
     repository = DeviceRepository()
