@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Monitor Dashboard</title>
+    <meta name="description" content="Real-time dashboard for monitoring the Mini Device Fleet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg-primary: #0f1117;
+            --bg-secondary: #1a1d27;
+            --bg-card: #222632;
+            --bg-card-hover: #2a2f3e;
+            --text-primary: #e8eaed;
+            --text-secondary: #9aa0ab;
+            --text-dim: #636b78;
+            --accent-green: #34d399;
+            --accent-green-bg: rgba(52, 211, 153, 0.1);
+            --accent-red: #f87171;
+            --accent-red-bg: rgba(248, 113, 113, 0.1);
+            --accent-blue: #60a5fa;
+            --accent-blue-bg: rgba(96, 165, 250, 0.1);
+            --border-color: rgba(255, 255, 255, 0.06);
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --radius: 12px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 24px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header h1 span {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .live-dot {
+            width: 8px; height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
+        }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            padding: 24px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        .summary-card .label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .summary-card .value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+        .summary-card.total .value { color: var(--accent-blue); }
+        .summary-card.online .value { color: var(--accent-green); }
+        .summary-card.offline .value { color: var(--accent-red); }
+
+        /* Device Grid */
+        .devices-section {
+            padding: 8px 32px 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        .device-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+        }
+        .device-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .device-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 4px;
+            height: 100%;
+            border-radius: 4px 0 0 4px;
+            transition: background 0.3s;
+        }
+        .device-card.online::before { background: var(--accent-green); }
+        .device-card.offline::before { background: var(--accent-red); }
+        .device-card:hover {
+            background: var(--bg-card-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .device-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+        .device-id {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-primary);
+        }
+        .device-name {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-badge.online {
+            background: var(--accent-green-bg);
+            color: var(--accent-green);
+        }
+        .status-badge.offline {
+            background: var(--accent-red-bg);
+            color: var(--accent-red);
+        }
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+        }
+        .status-badge.online .status-dot { background: var(--accent-green); }
+        .status-badge.offline .status-dot { background: var(--accent-red); }
+
+        .device-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .detail-item {
+            font-size: 0.78rem;
+        }
+        .detail-label {
+            color: var(--text-dim);
+            margin-bottom: 2px;
+        }
+        .detail-value {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-dim);
+        }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+        .empty-state p { font-size: 0.95rem; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 40px;
+        }
+
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .device-card { animation: fadeIn 0.3s ease forwards; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>⚡ <span>Fleet Monitor</span></h1>
+        <div class="header-meta">
+            <div class="live-dot"></div>
+            <span id="update-status">Connecting...</span>
+        </div>
+    </header>
+
+    <section class="summary-grid" id="summary-section">
+        <div class="summary-card total">
+            <div class="label">Total Devices</div>
+            <div class="value" id="total-count">—</div>
+        </div>
+        <div class="summary-card online">
+            <div class="label">Online</div>
+            <div class="value" id="online-count">—</div>
+        </div>
+        <div class="summary-card offline">
+            <div class="label">Offline</div>
+            <div class="value" id="offline-count">—</div>
+        </div>
+    </section>
+
+    <section class="devices-section">
+        <div class="section-title">Registered Devices</div>
+        <div class="device-grid" id="device-grid"></div>
+    </section>
+
+    <footer class="footer">
+        Mini Device Fleet Monitor • Auto-refreshes every 2 seconds
+    </footer>
+
+    <script>
+        const REFRESH_INTERVAL = 2000; // ms
+        let lastUpdateTime = null;
+
+        function formatTimestamp(isoStr) {
+            if (!isoStr) return '—';
+            const d = new Date(isoStr);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function timeAgo(isoStr) {
+            if (!isoStr) return 'Never';
+            const now = new Date();
+            const then = new Date(isoStr);
+            const diffSec = Math.floor((now - then) / 1000);
+            if (diffSec < 5) return 'Just now';
+            if (diffSec < 60) return `${diffSec}s ago`;
+            if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+            return `${Math.floor(diffSec / 3600)}h ago`;
+        }
+
+        function renderDeviceCard(device) {
+            const statusClass = device.status.toLowerCase();
+            const metrics = device.extra_metrics || {};
+            const cpuDisplay = metrics.cpu_usage !== undefined ? `${metrics.cpu_usage}%` : '—';
+            const signalDisplay = metrics.signal_strength !== undefined ? `${metrics.signal_strength} dBm` : '—';
+
+            return `
+                <div class="device-card ${statusClass}" style="animation-delay: 0.05s">
+                    <div class="device-header">
+                        <div>
+                            <div class="device-id">${device.id}</div>
+                            <div class="device-name">${device.name}</div>
+                        </div>
+                        <span class="status-badge ${statusClass}">
+                            <span class="status-dot"></span>
+                            ${device.status}
+                        </span>
+                    </div>
+                    <div class="device-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Last Heartbeat</div>
+                            <div class="detail-value">${timeAgo(device.last_heartbeat)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Reported Status</div>
+                            <div class="detail-value">${device.last_reported_status || '—'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">CPU Usage</div>
+                            <div class="detail-value">${cpuDisplay}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Signal</div>
+                            <div class="detail-value">${signalDisplay}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function fetchData() {
+            try {
+                const [summaryResp, devicesResp] = await Promise.all([
+                    fetch('/summary'),
+                    fetch('/devices'),
+                ]);
+
+                if (!summaryResp.ok || !devicesResp.ok) throw new Error('API error');
+
+                const summary = await summaryResp.json();
+                const devices = await devicesResp.json();
+
+                // Update summary cards
+                document.getElementById('total-count').textContent = summary.total;
+                document.getElementById('online-count').textContent = summary.online;
+                document.getElementById('offline-count').textContent = summary.offline;
+
+                // Update device grid
+                const grid = document.getElementById('device-grid');
+                if (devices.length === 0) {
+                    grid.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1 / -1">
+                            <div class="icon">📡</div>
+                            <p>No devices registered yet.<br>Start the simulator to see devices appear.</p>
+                        </div>
+                    `;
+                } else {
+                    // Sort: ONLINE first, then by ID
+                    devices.sort((a, b) => {
+                        if (a.status !== b.status) return a.status === 'ONLINE' ? -1 : 1;
+                        return a.id.localeCompare(b.id);
+                    });
+                    grid.innerHTML = devices.map(renderDeviceCard).join('');
+                }
+
+                // Update status indicator
+                lastUpdateTime = new Date();
+                document.getElementById('update-status').textContent =
+                    `Live • Updated ${formatTimestamp(lastUpdateTime.toISOString())}`;
+
+            } catch (err) {
+                document.getElementById('update-status').textContent =
+                    '⚠ Connection error — retrying...';
+                console.error('Fetch error:', err);
+            }
+        }
+
+        // Initial fetch + periodic refresh
+        fetchData();
+        setInterval(fetchData, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>
